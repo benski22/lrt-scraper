@@ -12,11 +12,12 @@ def scrape_lrt():
             browser = p.chromium.launch(headless=True)
             page = browser.new_page()
             page.goto("https://www.lrt.lt", timeout=20000, wait_until="domcontentloaded")
-            page.wait_for_timeout(2000)  # duodam JS laiką užkrauti
+            page.wait_for_timeout(3000)  # leidžiam JS pilnai įkelti tab'us
 
-            # Paimam HTML ir ieškom aktyvios tab-pane su skaitomiausiais
-            soup = BeautifulSoup(page.content(), "html.parser")
-            cards = soup.select("div.tab-pane.show.active div.col")
+            # Tiesiogiai imam HTML iš aktyvaus tab-pane (Skaitomiausi)
+            content_html = page.locator("div.tab-pane.show.active").inner_html()
+            soup = BeautifulSoup(content_html, "html.parser")
+            cards = soup.select("div.col")
 
             result = []
             for card in cards[:5]:
