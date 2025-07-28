@@ -11,15 +11,15 @@ def scrape_lrt():
         with sync_playwright() as p:
             browser = p.chromium.launch(headless=True)
             page = browser.new_page()
-            page.goto("https://www.lrt.lt", timeout=20000)
+            page.goto("https://www.lrt.lt", timeout=20000, wait_until="domcontentloaded")
+            page.wait_for_timeout(2000)
 
-            # Paspaudžiam ant "Skaitomiausi" tab
-            page.click("a[href^='#news-feed-most-read-content']", timeout=5000)
+            # Paspaudžiam ant "Skaitomiausi" tab pagal tekstą
+            page.click("a.nav-link:has-text('Skaitomiausi')", timeout=5000)
 
             # Laukiam, kol aktyvus blokas įsikraus
             page.wait_for_selector("div.tab-pane.show.active div.col", timeout=20000)
 
-            # Paimam puslapio HTML
             soup = BeautifulSoup(page.content(), "html.parser")
             cards = soup.select("div.tab-pane.show.active div.col")
 
@@ -34,10 +34,15 @@ def scrape_lrt():
                 time_span = card.select_one("span.info-block__time-before")
                 published = time_span.text.strip() if time_span else ""
 
-                # Atidarom straipsnį ir traukiam visą tekstą
-                page.goto(url, timeout=15000)
-                soup_full = BeautifulSoup(page.content(), "html.parser")
-                full_text = "\n".join([p.text.strip() for p in soup_full.select("div.article__body p")])
+                try:
+                    page.goto(url, timeout=15000)
+                    soup_full = BeautifulSoup(page.content(), "html.parser")
+                    full_text = "\n".join(
+                        [p.text.strip() for p in soup_full.select("div.article__body p")]
+                    )
+                except Exception as e:
+                    full_text = f"Klaida nuskaitant straipsnį: {str(e)}"
+
                 result.append({
                     "title": title,
                     "url": url,
@@ -47,6 +52,7 @@ def scrape_lrt():
 
             browser.close()
             return result
+
     except Exception as e:
         return {"error": f"Nepavyko nuskaityti LRT: {str(e)}"}
 
