@@ -15,7 +15,7 @@ def scrape_lrt():
             page.wait_for_timeout(2000)
 
             # Paspaudžiam ant "Skaitomiausi" tab pagal tekstą
-            page.click("a.nav-link:has-text('Skaitomiausi')", timeout=5000)
+            page.click("a.nav-link[href^='#news-feed-most-read-content']", timeout=5000)
 
             # Laukiam, kol aktyvus blokas įsikraus
             page.wait_for_selector("div.tab-pane.show.active div.col", timeout=20000)
