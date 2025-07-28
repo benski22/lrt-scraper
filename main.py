@@ -2,7 +2,6 @@ from fastapi import FastAPI
 from playwright.sync_api import sync_playwright
 from bs4 import BeautifulSoup
 import uvicorn
-import re
 
 app = FastAPI()
 
@@ -13,15 +12,17 @@ def scrape_lrt():
             browser = p.chromium.launch(headless=True)
             page = browser.new_page()
 
-            # Į pagrindinį LRT puslapį
+            # Eiti į pagrindinį puslapį
             page.goto("https://www.lrt.lt", timeout=20000, wait_until="domcontentloaded")
-            page.wait_for_timeout(3000)  # trumpas palaukimas
+            page.wait_for_timeout(3000)
 
-            # Randa dinaminį bloką pagal ID, kuris prasideda news-feed-most-read-content-
+            # Surandam elementą DOM'e (nesvarbu, ar matomas)
             locator = page.locator("div[id^='news-feed-most-read-content-']")
-            locator.wait_for(timeout=10000)
+            element_count = locator.count()
+            if element_count == 0:
+                return {"error": "Nerasta skaitomiausių naujienų blokelio."}
 
-            html = locator.inner_html()
+            html = locator.first.inner_html()
             soup = BeautifulSoup(html, "html.parser")
             cards = soup.select("div.col")
 
@@ -39,7 +40,7 @@ def scrape_lrt():
                 time_span = card.select_one("span.info-block__time-before")
                 published = time_span.text.strip() if time_span else ""
 
-                # Atidarom straipsnį
+                # Straipsnio tekstas
                 page.goto(url, timeout=15000)
                 soup_full = BeautifulSoup(page.content(), "html.parser")
                 full_text = "\n".join([p.text.strip() for p in soup_full.select("div.article__body p")])
