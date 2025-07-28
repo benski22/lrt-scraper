@@ -8,7 +8,7 @@ app = FastAPI()
 @app.get("/lrt-most-read")
 def scrape_lrt():
     with sync_playwright() as p:
-        browser = p.chromium.launch()
+        browser = p.chromium.launch(headless=True)
         page = browser.new_page()
         page.goto("https://www.lrt.lt/naujienos/lietuvoje")
         page.wait_for_selector("#news-feed-most-read-content-110343")
