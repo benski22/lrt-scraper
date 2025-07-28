@@ -1,5 +1,8 @@
 FROM mcr.microsoft.com/playwright/python:v1.54.0-jammy
 
+# Kad logai būtų rodomi realiu laiku
+ENV PYTHONUNBUFFERED=1
+
 WORKDIR /app
 
 COPY requirements.txt .
