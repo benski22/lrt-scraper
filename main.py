@@ -11,7 +11,7 @@ def scrape_lrt():
         with sync_playwright() as p:
             browser = p.chromium.launch(headless=True)
             page = browser.new_page()
-            page.goto("https://www.lrt.lt/naujienos/lietuvoje", timeout=20000)
+            page.goto("https://www.lrt.lt", timeout=20000)
 
             # Paspaudžiam ant "Skaitomiausi" tab
             page.click("a[href^='#news-feed-most-read-content']", timeout=5000)
