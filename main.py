@@ -13,7 +13,7 @@ def scrape_lrt():
             browser = p.chromium.launch(headless=True)
             page = browser.new_page()
             page.goto("https://www.lrt.lt", timeout=30000, wait_until="domcontentloaded")
-            page.wait_for_timeout(3000)  # duodam dar 3s viskam susikrauti
+            page.wait_for_timeout(7000)  # duodam dar 3s viskam susikrauti
 
             # Parsinam visą puslapio HTML
             html = page.content()
