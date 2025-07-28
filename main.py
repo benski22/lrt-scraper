@@ -13,13 +13,14 @@ def scrape_lrt():
         page.goto("https://www.lrt.lt/naujienos/lietuvoje")
 
         try:
-            page.wait_for_selector("div.feed.feed--most-read", timeout=10000, state="attached")
+            # Ieškome bet kurio elemento su klase .feed--most-read
+            page.wait_for_selector(".feed--most-read", timeout=20000)
         except PlaywrightTimeout:
             browser.close()
-            return {"error": "Nepavyko rasti 'most read' blokelio per 10 sek."}
+            return {"error": "Nepavyko rasti 'most read' blokelio per 20 sek."}
 
         soup = BeautifulSoup(page.content(), "html.parser")
-        cards = soup.select("div.feed.feed--most-read div.news")
+        cards = soup.select(".feed--most-read div.news")
 
         result = []
         for card in cards[:5]:
