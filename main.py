@@ -10,13 +10,29 @@ def scrape_lrt():
     try:
         with sync_playwright() as p:
             browser = p.chromium.launch(headless=True)
-            page = browser.new_page()
+            page = browser.new_page(
+                user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
+                viewport={"width": 1280, "height": 800}
+            )
 
             # Eiti į pagrindinį puslapį
-            page.goto("https://www.lrt.lt", timeout=20000, wait_until="domcontentloaded")
-            page.wait_for_timeout(3000)
+            page.goto("https://www.lrt.lt", timeout=30000, wait_until="networkidle")
+            page.wait_for_timeout(5000)  # padidintas laukimas
 
-            # Surandam elementą DOM'e (nesvarbu, ar matomas)
+            # Debug: parodyti visą puslapio HTML
+            print("=== page.content START ===")
+            print(page.content())
+            print("=== page.content END ===")
+
+            # Debug: parodyti visus div ID, prasidedančius nuo news-feed
+            ids = page.evaluate("""() => {
+                return Array.from(document.querySelectorAll("div"))
+                            .map(d => d.id)
+                            .filter(id => id && id.startsWith("news-feed-most-read-content-"))
+            }""")
+            print("Rasti blokų ID:", ids)
+
+            # Surandam elementą DOM'e
             locator = page.locator("div[id^='news-feed-most-read-content-']")
             element_count = locator.count()
             if element_count == 0:
