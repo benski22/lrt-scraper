@@ -12,15 +12,28 @@ def scrape_lrt():
             browser = p.chromium.launch(headless=True)
             page = browser.new_page()
             page.goto("https://www.lrt.lt", timeout=20000, wait_until="domcontentloaded")
-            page.wait_for_timeout(3000)  # leidžiam JS pilnai įkelti tab'us
+            page.wait_for_timeout(5000)  # leidžiam JS pilnai renderinti tab'us
 
-            # Tiesiogiai imam HTML iš aktyvaus tab-pane (Skaitomiausi)
-            content_html = page.locator("div.tab-pane.show.active").inner_html()
-            soup = BeautifulSoup(content_html, "html.parser")
-            cards = soup.select("div.col")
+            # Imame VISUS tab-pane (tame tarpe ir skaitomiausi)
+            full_html = page.content()
+            soup = BeautifulSoup(full_html, "html.parser")
+
+            # Ieškome to tab-pane, kuris turi news su "Skaitomiausi" klasėmis
+            tab_panes = soup.select("div.tab-pane")
+
+            skaitomiausi_cards = []
+            for tab in tab_panes:
+                cards = tab.select("div.col")
+                if not cards:
+                    continue
+                first_title = cards[0].select_one("h3.news__title a")
+                if first_title and "skaitomiausi" not in first_title["href"]:
+                    continue  # dar papildomas saugiklis
+                skaitomiausi_cards = cards
+                break
 
             result = []
-            for card in cards[:5]:
+            for card in skaitomiausi_cards[:5]:
                 link = card.select_one("a.media-block__link")
                 if not link:
                     continue
@@ -30,7 +43,6 @@ def scrape_lrt():
                 time_span = card.select_one("span.info-block__time-before")
                 published = time_span.text.strip() if time_span else ""
 
-                # Atidarom straipsnį ir imam pilną tekstą
                 page.goto(url, timeout=15000)
                 soup_full = BeautifulSoup(page.content(), "html.parser")
                 full_text = "\n".join([p.text.strip() for p in soup_full.select("div.article__body p")])
@@ -42,7 +54,7 @@ def scrape_lrt():
                 })
 
             browser.close()
-            return result
+            return result if result else {"error": "Nerasta jokių skaitomiausių straipsnių."}
 
     except Exception as e:
         return {"error": f"Nepavyko nuskaityti LRT: {str(e)}"}
