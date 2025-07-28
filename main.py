@@ -12,14 +12,9 @@ def scrape_lrt():
             browser = p.chromium.launch(headless=True)
             page = browser.new_page()
             page.goto("https://www.lrt.lt", timeout=20000, wait_until="domcontentloaded")
-            page.wait_for_timeout(2000)
+            page.wait_for_timeout(2000)  # duodam JS laiką užkrauti
 
-            # Paspaudžiam ant "Skaitomiausi" tab pagal tekstą
-            page.click("a.nav-link[href^='#news-feed-most-read-content']", timeout=5000)
-
-            # Laukiam, kol aktyvus blokas įsikraus
-            page.wait_for_selector("div.tab-pane.show.active div.col", timeout=20000)
-
+            # Paimam HTML ir ieškom aktyvios tab-pane su skaitomiausiais
             soup = BeautifulSoup(page.content(), "html.parser")
             cards = soup.select("div.tab-pane.show.active div.col")
 
@@ -34,15 +29,10 @@ def scrape_lrt():
                 time_span = card.select_one("span.info-block__time-before")
                 published = time_span.text.strip() if time_span else ""
 
-                try:
-                    page.goto(url, timeout=15000)
-                    soup_full = BeautifulSoup(page.content(), "html.parser")
-                    full_text = "\n".join(
-                        [p.text.strip() for p in soup_full.select("div.article__body p")]
-                    )
-                except Exception as e:
-                    full_text = f"Klaida nuskaitant straipsnį: {str(e)}"
-
+                # Atidarom straipsnį ir imam pilną tekstą
+                page.goto(url, timeout=15000)
+                soup_full = BeautifulSoup(page.content(), "html.parser")
+                full_text = "\n".join([p.text.strip() for p in soup_full.select("div.article__body p")])
                 result.append({
                     "title": title,
                     "url": url,
