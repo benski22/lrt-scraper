@@ -11,10 +11,10 @@ def scrape_lrt():
         browser = p.chromium.launch(headless=True)
         page = browser.new_page()
         page.goto("https://www.lrt.lt/naujienos/lietuvoje")
-        page.wait_for_selector("#news-feed-most-read-content-110343")
+        page.wait_for_selector("div.feed.feed--most-read")
         soup = BeautifulSoup(page.content(), "html.parser")
 
-        cards = soup.select("#news-feed-most-read-content-110343 div.news")
+        cards = soup.select("div.feed.feed--most-read div.news")
         result = []
         for card in cards[:5]:
             link = card.select_one("h3.news__title a")
