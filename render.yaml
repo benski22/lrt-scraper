@@ -3,5 +3,6 @@ services:
     name: lrt-scraper
     env: python
     buildCommand: pip install -r requirements.txt
-    startCommand: bash -c "playwright install && uvicorn main:app --host 0.0.0.0 --port 10000"
+    startCommand: |
+      sh -c "playwright install && uvicorn main:app --host 0.0.0.0 --port 10000"
     plan: free
