@@ -1,5 +1,5 @@
 from fastapi import FastAPI
-from playwright.sync_api import sync_playwright, TimeoutError as PlaywrightTimeout
+from playwright.sync_api import sync_playwright, TimeoutError as PlaywrightTimeoutError
 from bs4 import BeautifulSoup
 import uvicorn
 
@@ -7,44 +7,41 @@ app = FastAPI()
 
 @app.get("/lrt-most-read")
 def scrape_lrt():
-    with sync_playwright() as p:
-        browser = p.chromium.launch(headless=True)
-        page = browser.new_page()
-        page.goto("https://www.lrt.lt/naujienos/lietuvoje")
+    try:
+        with sync_playwright() as p:
+            browser = p.chromium.launch(headless=True)
+            page = browser.new_page()
+            page.goto("https://www.lrt.lt/naujienos/lietuvoje", timeout=20000)
 
-        try:
-            # Ieškome bet kurio elemento su klase .feed--most-read
-            page.wait_for_selector(".feed--most-read", timeout=20000)
-        except PlaywrightTimeout:
+            # Paspaudžia ant "Skaitomiausi" tab'o
+            page.click("a[href^='#news-feed-most-read-content']", timeout=5000)
+
+            # Palaukia, kol atsidaro aktyvus tab'as su straipsniais
+            page.wait_for_selector("div.tab-pane.active.show div.col", timeout=10000)
+
+            soup = BeautifulSoup(page.content(), "html.parser")
+            articles = soup.select("div.tab-pane.active.show div.col")
+
+            result = []
+            for card in articles[:5]:
+                link_tag = card.select_one("a.media-block__link")
+                title_tag = link_tag["title"] if link_tag else None
+                href = link_tag["href"] if link_tag else None
+
+                date_tag = card.select_one("span.info-block__time-before")
+                published = date_tag.text.strip() if date_tag else ""
+
+                if not title_tag or not href:
+                    continue
+
+                result.append({
+                    "title": title_tag,
+                    "url": "https://www.lrt.lt" + href,
+                    "published": published
+                })
+
             browser.close()
-            return {"error": "Nepavyko rasti 'most read' blokelio per 20 sek."}
+            return result
 
-        soup = BeautifulSoup(page.content(), "html.parser")
-        cards = soup.select(".feed--most-read div.news")
-
-        result = []
-        for card in cards[:5]:
-            link = card.select_one("h3.news__title a")
-            if not link:
-                continue
-            url = "https://www.lrt.lt" + link["href"]
-            title = link.text.strip()
-            pub = card.select_one(".info-block span")
-            published = pub["title"] if pub else ""
-
-            page.goto(url)
-            soup_full = BeautifulSoup(page.content(), "html.parser")
-            full_text = "\n".join([p.text.strip() for p in soup_full.select("div.article__body p")])
-
-            result.append({
-                "title": title,
-                "url": url,
-                "published": published,
-                "full_text": full_text
-            })
-
-        browser.close()
-        return result
-
-if __name__ == "__main__":
-    uvicorn.run(app, host="0.0.0.0", port=10000)
+    except PlaywrightTimeoutError:
+        return {"error": "Nepavyko rasti 'most read' blokelio per 10–20 s."}
