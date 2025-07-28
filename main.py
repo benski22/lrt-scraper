@@ -12,19 +12,19 @@ def scrape_lrt():
         with sync_playwright() as p:
             browser = p.chromium.launch(headless=True)
             page = browser.new_page()
-            page.goto("https://www.lrt.lt", timeout=30000, wait_until="domcontentloaded")
-            page.wait_for_timeout(7000)  # duodam dar 3s viskam susikrauti
 
-            # Parsinam visą puslapio HTML
-            html = page.content()
+            # Į pagrindinį LRT puslapį
+            page.goto("https://www.lrt.lt", timeout=20000, wait_until="domcontentloaded")
+            page.wait_for_timeout(3000)  # trumpas palaukimas
+
+            # Randa dinaminį bloką pagal ID, kuris prasideda news-feed-most-read-content-
+            locator = page.locator("div[id^='news-feed-most-read-content-']")
+            locator.wait_for(timeout=10000)
+
+            html = locator.inner_html()
             soup = BeautifulSoup(html, "html.parser")
+            cards = soup.select("div.col")
 
-            # Surandam ID dinamiškai – su regex
-            most_read_div = soup.find("div", id=re.compile("^news-feed-most-read-content-"))
-            if not most_read_div:
-                return {"error": "Nerasta skaitomiausių naujienų blokelio."}
-
-            cards = most_read_div.select("div.col")
             if not cards:
                 return {"error": "Nerasta skaitomiausių naujienų straipsnių."}
 
@@ -39,10 +39,11 @@ def scrape_lrt():
                 time_span = card.select_one("span.info-block__time-before")
                 published = time_span.text.strip() if time_span else ""
 
-                # Atidarom straipsnio puslapį
+                # Atidarom straipsnį
                 page.goto(url, timeout=15000)
                 soup_full = BeautifulSoup(page.content(), "html.parser")
                 full_text = "\n".join([p.text.strip() for p in soup_full.select("div.article__body p")])
+
                 result.append({
                     "title": title,
                     "url": url,
@@ -52,6 +53,7 @@ def scrape_lrt():
 
             browser.close()
             return result
+
     except Exception as e:
         return {"error": f"Nepavyko nuskaityti LRT: {str(e)}"}
 
