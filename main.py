@@ -1,5 +1,5 @@
 from fastapi import FastAPI
-from playwright.sync_api import sync_playwright
+from playwright.sync_api import sync_playwright, TimeoutError as PlaywrightTimeout
 from bs4 import BeautifulSoup
 import uvicorn
 
@@ -11,10 +11,16 @@ def scrape_lrt():
         browser = p.chromium.launch(headless=True)
         page = browser.new_page()
         page.goto("https://www.lrt.lt/naujienos/lietuvoje")
-        page.wait_for_selector("div.feed.feed--most-read")
-        soup = BeautifulSoup(page.content(), "html.parser")
 
+        try:
+            page.wait_for_selector("div.feed.feed--most-read", timeout=10000, state="attached")
+        except PlaywrightTimeout:
+            browser.close()
+            return {"error": "Nepavyko rasti 'most read' blokelio per 10 sek."}
+
+        soup = BeautifulSoup(page.content(), "html.parser")
         cards = soup.select("div.feed.feed--most-read div.news")
+
         result = []
         for card in cards[:5]:
             link = card.select_one("h3.news__title a")
@@ -24,10 +30,18 @@ def scrape_lrt():
             title = link.text.strip()
             pub = card.select_one(".info-block span")
             published = pub["title"] if pub else ""
+
             page.goto(url)
             soup_full = BeautifulSoup(page.content(), "html.parser")
             full_text = "\n".join([p.text.strip() for p in soup_full.select("div.article__body p")])
-            result.append({"title": title, "url": url, "published": published, "full_text": full_text})
+
+            result.append({
+                "title": title,
+                "url": url,
+                "published": published,
+                "full_text": full_text
+            })
+
         browser.close()
         return result
 
