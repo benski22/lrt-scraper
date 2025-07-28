@@ -46,7 +46,7 @@ def scrape_lrt():
                 return {"error": "Nerasta skaitomiausių naujienų straipsnių."}
 
             result = []
-            for card in cards[:5]:
+            for card in cards[:10]:
                 link = card.select_one("a.media-block__link")
                 if not link:
                     continue
