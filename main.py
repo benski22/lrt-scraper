@@ -15,11 +15,11 @@ def scrape_lrt(limit: int = Query(10, ge=1, le=10)):
                 viewport={"width": 1280, "height": 800}
             )
 
-            # Eiti į LRT pagrindinį puslapį
-            page.goto("https://www.lrt.lt", timeout=30000, wait_until="domcontentloaded")
-            page.wait_for_selector("div[id^='news-feed-most-read-content-']", timeout=15000, state="attached")
+            # Eiti į pagrindinį puslapį
+            page.goto("https://www.lrt.lt", timeout=30000, wait_until="networkidle")
+            page.wait_for_timeout(5000)
 
-            # Rasti skaitomiausių naujienų bloką
+            # Surandam bloką su skaitomiausiais straipsniais
             locator = page.locator("div[id^='news-feed-most-read-content-']")
             if locator.count() == 0:
                 return {"error": "Nerasta skaitomiausių naujienų blokelio."}
@@ -36,17 +36,22 @@ def scrape_lrt(limit: int = Query(10, ge=1, le=10)):
                 link = card.select_one("a.media-block__link")
                 if not link:
                     continue
-
                 url = "https://www.lrt.lt" + link["href"]
                 title = link.get("title", "").strip()
 
                 time_span = card.select_one("span.info-block__time-before")
                 published = time_span.text.strip() if time_span else ""
 
+                # Atidaryti straipsnį ir paimti visą tekstą
+                page.goto(url, timeout=15000)
+                soup_full = BeautifulSoup(page.content(), "html.parser")
+                full_text = "\n".join([p.text.strip() for p in soup_full.select("div.article__body p")])
+
                 result.append({
                     "title": title,
                     "url": url,
-                    "published": published
+                    "published": published,
+                    "full_text": full_text
                 })
 
             browser.close()
