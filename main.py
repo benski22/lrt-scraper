@@ -1,4 +1,4 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Query
 from playwright.sync_api import sync_playwright
 from bs4 import BeautifulSoup
 import uvicorn
@@ -6,7 +6,7 @@ import uvicorn
 app = FastAPI()
 
 @app.get("/lrt-most-read")
-def scrape_lrt():
+def scrape_lrt(limit: int = Query(10, ge=1, le=10)):
     try:
         with sync_playwright() as p:
             browser = p.chromium.launch(headless=True)
@@ -17,25 +17,11 @@ def scrape_lrt():
 
             # Eiti į pagrindinį puslapį
             page.goto("https://www.lrt.lt", timeout=30000, wait_until="networkidle")
-            page.wait_for_timeout(5000)  # padidintas laukimas
+            page.wait_for_timeout(5000)
 
-            # Debug: parodyti visą puslapio HTML
-            print("=== page.content START ===")
-            print(page.content())
-            print("=== page.content END ===")
-
-            # Debug: parodyti visus div ID, prasidedančius nuo news-feed
-            ids = page.evaluate("""() => {
-                return Array.from(document.querySelectorAll("div"))
-                            .map(d => d.id)
-                            .filter(id => id && id.startsWith("news-feed-most-read-content-"))
-            }""")
-            print("Rasti blokų ID:", ids)
-
-            # Surandam elementą DOM'e
+            # Surandam bloką su skaitomiausiais straipsniais
             locator = page.locator("div[id^='news-feed-most-read-content-']")
-            element_count = locator.count()
-            if element_count == 0:
+            if locator.count() == 0:
                 return {"error": "Nerasta skaitomiausių naujienų blokelio."}
 
             html = locator.first.inner_html()
@@ -46,7 +32,7 @@ def scrape_lrt():
                 return {"error": "Nerasta skaitomiausių naujienų straipsnių."}
 
             result = []
-            for card in cards[:10]:
+            for card in cards[:limit]:
                 link = card.select_one("a.media-block__link")
                 if not link:
                     continue
@@ -56,7 +42,7 @@ def scrape_lrt():
                 time_span = card.select_one("span.info-block__time-before")
                 published = time_span.text.strip() if time_span else ""
 
-                # Straipsnio tekstas
+                # Atidaryti straipsnį ir paimti visą tekstą
                 page.goto(url, timeout=15000)
                 soup_full = BeautifulSoup(page.content(), "html.parser")
                 full_text = "\n".join([p.text.strip() for p in soup_full.select("div.article__body p")])
