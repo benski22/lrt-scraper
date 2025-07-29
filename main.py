@@ -17,7 +17,7 @@ def scrape_lrt(limit: int = Query(10, ge=1, le=10)):
 
             # Eiti į LRT pagrindinį puslapį
             page.goto("https://www.lrt.lt", timeout=30000, wait_until="domcontentloaded")
-            page.wait_for_selector("div[id^='news-feed-most-read-content-']", timeout=15000)
+            page.wait_for_selector("div[id^='news-feed-most-read-content-']", timeout=15000, state="attached")
 
             # Rasti skaitomiausių naujienų bloką
             locator = page.locator("div[id^='news-feed-most-read-content-']")
