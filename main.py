@@ -44,8 +44,12 @@ def scrape_lrt(limit: int = Query(10, ge=1, le=10)):
 
                 # Atidaryti straipsnį ir paimti visą tekstą
                 page.goto(url, timeout=15000)
-                soup_full = BeautifulSoup(page.content(), "html.parser")
-                full_text = "\n".join([p.text.strip() for p in soup_full.select("div.article__body p")])
+                try:
+                    html_full = page.inner_html("div.article__body")
+                    soup_full = BeautifulSoup(html_full, "html.parser")
+                    full_text = "\n".join([p.text.strip() for p in soup_full.select("p")])
+                except:
+                    full_text = ""
 
                 result.append({
                     "title": title,
