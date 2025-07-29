@@ -51,7 +51,7 @@ def scrape_lrt(limit: int = Query(10, ge=1, le=10)):
             return result
 
     except Exception as e:
-        return {"error": f"Nepavyko nuskaityti LRT: {str(e)}"}}
+        return {"error": f"Nepavyko nuskaityti LRT: {str(e)}"}
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=10000)
