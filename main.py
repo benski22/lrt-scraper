@@ -15,19 +15,18 @@ def scrape_lrt(limit: int = Query(10, ge=1, le=10)):
                 viewport={"width": 1280, "height": 800}
             )
 
-            # Eiti į pagrindinį puslapį
-            page.goto("https://www.lrt.lt", timeout=30000, wait_until="networkidle")
+            page.goto("https://www.lrt.lt", timeout=30000, wait_until="domcontentloaded")
             page.wait_for_timeout(5000)
 
-            # Surandam bloką su skaitomiausiais straipsniais
-            locator = page.locator("div[id^='news-feed-most-read-content-']")
-            if locator.count() == 0:
-                return {"error": "Nerasta skaitomiausių naujienų blokelio."}
+            # Bandymas saugiai gauti HTML
+            try:
+                locator = page.locator("div[id^='news-feed-most-read-content-']")
+                html = locator.first.inner_html()
+            except:
+                return {"error": "Nepavyko gauti skaitomiausių blokelio HTML."}
 
-            html = locator.first.inner_html()
             soup = BeautifulSoup(html, "html.parser")
             cards = soup.select("div.col")
-
             if not cards:
                 return {"error": "Nerasta skaitomiausių naujienų straipsnių."}
 
@@ -42,23 +41,17 @@ def scrape_lrt(limit: int = Query(10, ge=1, le=10)):
                 time_span = card.select_one("span.info-block__time-before")
                 published = time_span.text.strip() if time_span else ""
 
-                # Atidaryti straipsnį ir paimti visą tekstą
-                page.goto(url, timeout=15000)
-                soup_full = BeautifulSoup(page.content(), "html.parser")
-                full_text = "\n".join([p.text.strip() for p in soup_full.select("div.article__body p")])
-
                 result.append({
                     "title": title,
                     "url": url,
-                    "published": published,
-                    "full_text": full_text
+                    "published": published
                 })
 
             browser.close()
             return result
 
     except Exception as e:
-        return {"error": f"Nepavyko nuskaityti LRT: {str(e)}"}
+        return {"error": f"Nepavyko nuskaityti LRT: {str(e)}"}}
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=10000)
