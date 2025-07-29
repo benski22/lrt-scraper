@@ -16,26 +16,19 @@ CATEGORIES = {
 
 BASE_URL = "https://www.lrt.lt"
 
-HEADERS = {
-    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:102.0) Gecko/20100101 Firefox/102.0",
-    "Accept": "text/html",
-    "Accept-Language": "lt,en;q=0.9"
-}
 
 def parse_category_page(category_name: str, url: str) -> List[Dict]:
     articles = []
     try:
-        res = requests.get(url, timeout=10, headers=HEADERS)
+        res = requests.get(url, timeout=10, headers={"User-Agent": "Mozilla/5.0"})
         res.raise_for_status()
         soup = BeautifulSoup(res.text, "html.parser")
 
+        # Randa visus 5 straipsnius pagal .row > .col struktūrą
         article_blocks = soup.select("div.row > div.col")
         for rank, block in enumerate(article_blocks[:5], start=1):
             try:
                 title_tag = block.select_one("h3.news__title > a")
-                if not title_tag:
-                    continue
-
                 title = title_tag.text.strip()
                 relative_url = title_tag.get("href", "")
                 full_url = BASE_URL + relative_url
@@ -50,19 +43,11 @@ def parse_category_page(category_name: str, url: str) -> List[Dict]:
                     "category": category_name,
                     "rank": rank
                 })
-            except Exception:
-                continue  # skip invalid structure
+            except Exception as e:
+                continue  # praleidžiam konkrečią blogą struktūrą
 
-    except requests.exceptions.HTTPError as http_err:
-        return [{
-            "title": None,
-            "url": None,
-            "published": None,
-            "category": category_name,
-            "rank": None,
-            "error": f"HTTP {res.status_code}: {str(http_err)}"
-        }]
     except Exception as e:
+        # Logika, jei visa kategorija nepavyksta
         return [{
             "title": None,
             "url": None,
@@ -71,7 +56,7 @@ def parse_category_page(category_name: str, url: str) -> List[Dict]:
             "rank": None,
             "error": str(e)
         }]
-
+    
     return articles
 
 
