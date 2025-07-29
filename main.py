@@ -16,7 +16,7 @@ def scrape_lrt(limit: int = Query(10, ge=1, le=10)):
             )
 
             # Eiti į pagrindinį puslapį
-            page.goto("https://www.lrt.lt", timeout=30000, wait_until="networkidle")
+            page.goto("https://www.lrt.lt", timeout=30000, wait_until="domcontentloaded")
             page.wait_for_timeout(5000)
 
             # Surandam bloką su skaitomiausiais straipsniais
