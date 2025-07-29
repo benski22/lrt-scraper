@@ -15,12 +15,16 @@ def scrape_lrt(limit: int = Query(10, ge=1, le=10)):
                 viewport={"width": 1280, "height": 800}
             )
 
+            # Eiti į LRT pagrindinį puslapį
             page.goto("https://www.lrt.lt", timeout=30000, wait_until="domcontentloaded")
-            page.wait_for_timeout(5000)
+            page.wait_for_timeout(8000)  # daugiau laiko JS generavimui
 
-            # Bandymas saugiai gauti HTML
+            # Ieškom blokelio DOM'e
+            locator = page.locator("div[id^='news-feed-most-read-content-']")
+            if locator.count() == 0:
+                return {"error": "Nerasta skaitomiausių naujienų blokelio."}
+
             try:
-                locator = page.locator("div[id^='news-feed-most-read-content-']")
                 html = locator.first.inner_html()
             except:
                 return {"error": "Nepavyko gauti skaitomiausių blokelio HTML."}
