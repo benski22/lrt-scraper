@@ -1,61 +1,82 @@
-from fastapi import FastAPI, Query
-from playwright.sync_api import sync_playwright
+from fastapi import FastAPI
 from bs4 import BeautifulSoup
-import uvicorn
+import requests
+from datetime import datetime
+from typing import List, Dict
 
 app = FastAPI()
 
-@app.get("/lrt-most-read")
-def scrape_lrt(limit: int = Query(10, ge=1, le=10)):
+CATEGORIES = {
+    "lietuvoje": "https://www.lrt.lt/naujienos/lietuvoje",
+    "verslas": "https://www.lrt.lt/naujienos/verslas",
+    "pasaulyje": "https://www.lrt.lt/naujienos/pasaulyje",
+    "eismas": "https://www.lrt.lt/naujienos/eismas",
+    "mokslas-ir-it": "https://www.lrt.lt/naujienos/mokslas-ir-it"
+}
+
+BASE_URL = "https://www.lrt.lt"
+
+
+def parse_category_page(category_name: str, url: str) -> List[Dict]:
+    articles = []
     try:
-        with sync_playwright() as p:
-            browser = p.chromium.launch(headless=True)
-            page = browser.new_page(
-                user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
-                viewport={"width": 1280, "height": 800}
-            )
+        res = requests.get(url, timeout=10, headers={"User-Agent": "Mozilla/5.0"})
+        res.raise_for_status()
+        soup = BeautifulSoup(res.text, "html.parser")
 
-            # Eiti į LRT pagrindinį puslapį
-            page.goto("https://www.lrt.lt", timeout=30000, wait_until="domcontentloaded")
-            page.wait_for_timeout(8000)  # daugiau laiko JS generavimui
-
-            # Ieškom blokelio DOM'e
-            locator = page.locator("div[id^='news-feed-most-read-content-']")
-            if locator.count() == 0:
-                return {"error": "Nerasta skaitomiausių naujienų blokelio."}
-
+        # Randa visus 5 straipsnius pagal .row > .col struktūrą
+        article_blocks = soup.select("div.row > div.col")
+        for rank, block in enumerate(article_blocks[:5], start=1):
             try:
-                html = locator.first.inner_html()
-            except:
-                return {"error": "Nepavyko gauti skaitomiausių blokelio HTML."}
+                title_tag = block.select_one("h3.news__title > a")
+                title = title_tag.text.strip()
+                relative_url = title_tag.get("href", "")
+                full_url = BASE_URL + relative_url
 
-            soup = BeautifulSoup(html, "html.parser")
-            cards = soup.select("div.col")
-            if not cards:
-                return {"error": "Nerasta skaitomiausių naujienų straipsnių."}
+                published = block.select_one("span.info-block__text")
+                published_text = published.text.strip() if published else None
 
-            result = []
-            for card in cards[:limit]:
-                link = card.select_one("a.media-block__link")
-                if not link:
-                    continue
-                url = "https://www.lrt.lt" + link["href"]
-                title = link.get("title", "").strip()
-
-                time_span = card.select_one("span.info-block__time-before")
-                published = time_span.text.strip() if time_span else ""
-
-                result.append({
+                articles.append({
                     "title": title,
-                    "url": url,
-                    "published": published
+                    "url": full_url,
+                    "published": published_text,
+                    "category": category_name,
+                    "rank": rank
                 })
-
-            browser.close()
-            return result
+            except Exception as e:
+                continue  # praleidžiam konkrečią blogą struktūrą
 
     except Exception as e:
-        return {"error": f"Nepavyko nuskaityti LRT: {str(e)}"}
+        # Logika, jei visa kategorija nepavyksta
+        return [{
+            "title": None,
+            "url": None,
+            "published": None,
+            "category": category_name,
+            "rank": None,
+            "error": str(e)
+        }]
+    
+    return articles
 
-if __name__ == "__main__":
-    uvicorn.run(app, host="0.0.0.0", port=10000)
+
+@app.get("/lrt-most-read")
+def get_lrt_most_read():
+    all_articles = []
+    errors = {}
+
+    for category, url in CATEGORIES.items():
+        parsed = parse_category_page(category, url)
+
+        if parsed and parsed[0].get("error"):
+            errors[category] = parsed[0]["error"]
+        else:
+            errors[category] = None
+            all_articles.extend(parsed)
+
+    return {
+        "success": True,
+        "scraped_at": datetime.utcnow().isoformat(),
+        "articles": all_articles,
+        "errors": errors
+    }
