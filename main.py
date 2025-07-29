@@ -15,20 +15,28 @@ CATEGORIES = {
 }
 
 BASE_URL = "https://www.lrt.lt"
+CACHE_PREFIX = "https://webcache.googleusercontent.com/search?q=cache:"
 
 
-def parse_category_page(category_name: str, url: str) -> List[Dict]:
+def parse_category_page(category_name: str, original_url: str) -> List[Dict]:
     articles = []
+    cache_url = f"{CACHE_PREFIX}{original_url}"
+
     try:
-        res = requests.get(url, timeout=10, headers={"User-Agent": "Mozilla/5.0"})
+        res = requests.get(cache_url, timeout=10, headers={"User-Agent": "Mozilla/5.0"})
+        if res.status_code == 404:
+            raise Exception("Google Cache not available for this URL")
         res.raise_for_status()
+
         soup = BeautifulSoup(res.text, "html.parser")
 
-        # Randa visus 5 straipsnius pagal .row > .col struktūrą
         article_blocks = soup.select("div.row > div.col")
         for rank, block in enumerate(article_blocks[:5], start=1):
             try:
                 title_tag = block.select_one("h3.news__title > a")
+                if not title_tag:
+                    continue
+
                 title = title_tag.text.strip()
                 relative_url = title_tag.get("href", "")
                 full_url = BASE_URL + relative_url
@@ -43,11 +51,10 @@ def parse_category_page(category_name: str, url: str) -> List[Dict]:
                     "category": category_name,
                     "rank": rank
                 })
-            except Exception as e:
-                continue  # praleidžiam konkrečią blogą struktūrą
+            except Exception:
+                continue
 
     except Exception as e:
-        # Logika, jei visa kategorija nepavyksta
         return [{
             "title": None,
             "url": None,
@@ -56,7 +63,7 @@ def parse_category_page(category_name: str, url: str) -> List[Dict]:
             "rank": None,
             "error": str(e)
         }]
-    
+
     return articles
 
 
